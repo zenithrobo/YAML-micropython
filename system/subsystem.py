@@ -1,11 +1,6 @@
-from abc import ABC, abstractmethod
-
-class Subsystem(ABC):
-    @abstractmethod
+class Subsystem:
     def period(self):
         """
         Periodic method called every loop.
-        Args:
-            dt (float): Time delta in seconds.
         """
-        pass
+        raise NotImplementedError

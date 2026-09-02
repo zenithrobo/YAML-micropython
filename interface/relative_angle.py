@@ -1,5 +1,7 @@
 import math
 
+from lib.interface.angular_velocity import AngularVelocitySensor
+
 
 class RelativeAngleSensor:
     """相对/增量角度传感器(存量 / 有记忆)。
@@ -63,3 +65,49 @@ class RelativeAngleSensor:
 
     def reset_accumulated_degrees(self, degrees: float = 0.0) -> None:
         self.reset_accumulated_radians(degrees / 360.0 * math.pi)
+
+
+class RelativeToVelocity(AngularVelocitySensor):
+    """把 RelativeAngleSensor(累计角度/存量)微分成角速度。
+
+    累计量单调不回绕,Δaccum 直接是转过的圈数 —— **无需 unwrap**,高速可靠。
+    这是给 flywheel mechanism 用的推荐路径(配合 ABZ+PCNT)。
+
+    必须由主循环反复调用 update()(它需要 dt);dt 跟着调用节奏走,
+    与控制循环同相位(见 SKILL.md Deriv. 2/4:微积分放消费端主循环)。
+    """
+
+    def __init__(self, source, filter_alpha=None):
+        self._src = source  # RelativeAngleSensor
+        self._alpha = filter_alpha  # None=不滤波;否则一阶低通系数
+        self._last_rot = None
+        self._last_us = None
+        self._vel_rps = 0.0
+        self._valid = False
+
+    def update(self):
+        """采一次并更新速度估计。主循环每帧调。返回当前 rev/s 或 None。"""
+        rot = self._src.get_accumulated_rotations()
+        now = time.ticks_us()
+        if rot is None:
+            self._valid = False
+            self._last_rot = self._last_us = None
+            return None
+        if self._last_rot is None:
+            self._last_rot, self._last_us = rot, now
+            return None
+        dt = time.ticks_diff(now, self._last_us) / 1_000_000.0
+        if dt <= 0:
+            return self._vel_rps if self._valid else None
+        raw = (rot - self._last_rot) / dt  # 累计量直接做差,无 unwrap
+        self._last_rot, self._last_us = rot, now
+        if self._alpha is None or not self._valid:
+            self._vel_rps = raw
+        else:
+            self._vel_rps += self._alpha * (raw - self._vel_rps)
+        self._valid = True
+        return self._vel_rps
+
+    # ---- AngularVelocitySensor 契约 ----
+    def get_velocity_rps(self):
+        return self._vel_rps if self._valid else None
