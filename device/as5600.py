@@ -28,13 +28,13 @@ class AS5600(AbsoluteAngleSensor):
         except Exception:
             return False
 
-    def magnet_ok(self):
+    def warning(self):
         """磁场强度是否正常(转发 AS5600 的 MD/ML/MH 状态)。失败返回 False。"""
         try:
             status = self.i2c.readfrom_mem(self.address, REG_STATUS, 1)[0]
         except Exception:
-            return False
-        return not (status & MAGNET_HIGH or status & MAGNET_LOW)
+            return True
+        return status & MAGNET_HIGH or status & MAGNET_LOW
 
     def magnet_status(self):
         """'OK' / 'HIGH'(太近) / 'LOW'(太远) / 'NO'(读失败)。"""
