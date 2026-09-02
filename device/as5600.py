@@ -1,114 +1,57 @@
-import _thread
-import time
-
-from lib.interface import angle_sensor, angular_velocity_sensor
 from machine import I2C, Pin
+from lib.interface.absolute_angle import AbsoluteAngleSensor
 
 AS5600_ADDR = 0x36
-REG_ANGLE_HI = 0x0C
-REG_ANGLE_LO = 0x0D
-REG_STATUS = 0x0B
 REG_RAW_ANGLE_HI = 0x0C
+REG_STATUS = 0x0B
 MAGNET_HIGH = 0x20
 MAGNET_LOW = 0x10
 
-SPEED_WINDOW_US = 20000
-MAX_SAMPLE_GAP_US = 3500
-RPM_FILTER_ALPHA = 0.5
 
+class AS5600(AbsoluteAngleSensor):
+    """AS5600 磁角度传感器(I2C)"""
 
-class AS5600Iic(angle_sensor, angular_velocity_sensor):
-    def __init__(self, sda, scl, i2c_id=0, address=AS5600_ADDR):
-        self.i2c = I2C(i2c_id, scl=Pin(scl), sda=Pin(sda), freq=400000)
+    def __init__(self, sda, scl, i2c_id=0, address=AS5600_ADDR, freq=400000):
+        self.i2c = I2C(i2c_id, scl=Pin(scl), sda=Pin(sda), freq=freq)
         self.address = address
-        self._lock = _thread.allocate_lock()
-        self.rpm = 0.0
-        self.rpm_valid = False
-        self._last_raw = None
-        self._last_t = None
-        self._win_start = None
-        self._win_delta = 0
 
+    # ---- AbsoluteAngleSensor 契约:唯一必须实现的方法 ----
+    def get_rotation(self):
+        """当前绝对角度 [0,1) 圈;读一次即得;失败返回 None。"""
+        raw = self._raw_angle()
+        return None if raw is None else raw / 4096.0
+
+    # ---- 设备诊断(转发芯片信号,不做判断逻辑)----
     def connected(self):
         try:
-            with self._lock:
-                return self.address in self.i2c.scan()
+            return self.address in self.i2c.scan()
         except Exception:
             return False
 
-    def raw_angle(self):
+    def magnet_ok(self):
+        """磁场强度是否正常(转发 AS5600 的 MD/ML/MH 状态)。失败返回 False。"""
         try:
-            with self._lock:
-                data = self.i2c.readfrom_mem(self.address, REG_RAW_ANGLE_HI, 2)
+            status = self.i2c.readfrom_mem(self.address, REG_STATUS, 1)[0]
         except Exception:
-            return None
-        return (data[0] << 8 | data[1]) & 0x0FFF
-
-    def get_rotations(self):
-        raw = self.raw_angle()
-        if raw is None:
-            return None
-        return raw / 4096.0
-
-    @staticmethod
-    def _unwrap(raw, last_raw):
-        delta = raw - last_raw
-        if delta > 2048:
-            delta -= 4096
-        elif delta < -2048:
-            delta += 4096
-        return delta
-
-    def sample(self):
-        raw = self.raw_angle()
-        if raw is None:
-            self.rpm_valid = False
-            self._last_raw = None
-            self._last_t = None
-            return None
-        now = time.ticks_us()
-        if self._last_raw is None or self._last_t is None or self._win_start is None:
-            self._last_raw = raw
-            self._last_t = now
-            self._win_start = now
-            self._win_delta = 0
-            return None
-        gap = time.ticks_diff(now, self._last_t)
-        if gap <= 0 or gap > MAX_SAMPLE_GAP_US:
-            self.rpm_valid = False
-            self._last_raw = raw
-            self._last_t = now
-            self._win_start = now
-            self._win_delta = 0
-            return None
-        self._win_delta += self._unwrap(raw, self._last_raw)
-        self._last_raw = raw
-        self._last_t = now
-        if time.ticks_diff(now, self._win_start) < SPEED_WINDOW_US:
-            return None
-        window_us = time.ticks_diff(now, self._win_start)
-        w = self._win_delta * 60000000.0 / (4096.0 * window_us)
-        with self._lock:
-            if self.rpm_valid:
-                self.rpm += RPM_FILTER_ALPHA * (w - self.rpm)
-            else:
-                self.rpm = w
-                self.rpm_valid = True
-        self._win_start = now
-        self._win_delta = 0
-        return self.rpm
-
-    def get_rpm(self):
-        with self._lock:
-            return self.rpm
+            return False
+        return not (status & MAGNET_HIGH or status & MAGNET_LOW)
 
     def magnet_status(self):
-        if not self.connected():
-            return "NO"
-        with self._lock:
+        """'OK' / 'HIGH'(太近) / 'LOW'(太远) / 'NO'(读失败)。"""
+        try:
             status = self.i2c.readfrom_mem(self.address, REG_STATUS, 1)[0]
+        except Exception:
+            return "NO"
         if status & MAGNET_HIGH:
             return "HIGH"
         if status & MAGNET_LOW:
             return "LOW"
         return "OK"
+
+    # ---- 私有:原始寄存器读取 ----
+    def _raw_angle(self):
+        try:
+            data = self.i2c.readfrom_mem(self.address, REG_RAW_ANGLE_HI, 2)
+        except Exception:
+            return None
+        return (data[0] << 8 | data[1]) & 0x0FFF
