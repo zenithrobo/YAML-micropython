@@ -1,7 +1,9 @@
 import math
 
+from lib.system.sensor import Sensor
 
-class AngularVelocitySensor:
+
+class AngularVelocitySensor(Sensor):
     """角速度传感器(原生速度源 / 读一次即得)。
 
     语义:报告"当前转多快",带方向(正负),单位以"圈/秒(rev/s)"为基准。

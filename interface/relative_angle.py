@@ -1,9 +1,10 @@
 import math
 
 from lib.interface.angular_velocity import AngularVelocitySensor
+from lib.system.sensor import Sensor
 
 
-class RelativeAngleSensor:
+class RelativeAngleSensor(Sensor):
     """相对/增量角度传感器(存量 / 有记忆)。
 
     语义:报告"从某个零点(通常是开机点)累计转过了多少",单调累加、**不回绕**。
@@ -85,7 +86,7 @@ class RelativeToVelocity(AngularVelocitySensor):
         self._vel_rps = 0.0
         self._valid = False
 
-    def update(self):
+    def poll(self):
         """采一次并更新速度估计。主循环每帧调。返回当前 rev/s 或 None。"""
         rot = self._src.get_accumulated_rotations()
         now = time.ticks_us()

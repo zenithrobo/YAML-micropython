@@ -1,9 +1,10 @@
 import math
 
 from lib.interface.angular_velocity import AngularVelocitySensor
+from lib.system.sensor import Sensor
 
 
-class AbsoluteAngleSensor:
+class AbsoluteAngleSensor(Sensor):
     """绝对角度传感器(流量 / 无记忆)。
 
     语义:报告"当前在圆周上的位置",范围回绕 [0, 1) 圈。
@@ -59,7 +60,7 @@ class AbsoluteToVelocity(AngularVelocitySensor):
         self._vel_rps = 0.0
         self._valid = False
 
-    def update(self):
+    def poll(self):
         """采一次并更新速度估计。间隔超过 max_gap 会判为无效(可能已混叠)。"""
         rot = self._src.get_rotation()  # [0,1) 回绕
         now = time.ticks_us()
