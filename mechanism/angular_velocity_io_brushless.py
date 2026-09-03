@@ -30,6 +30,7 @@ class AngularVelocityIOBrushless(AngularVelocityIO):
         self._peak_rad_s = peak_rad_s
         self._pid = PIDController()
         self._pid.set_output_range(-1.0, 1.0)
+        self._pid.set_integral_range(200)   # anti-windup: ki * 200 rad ≈ 4% throttle
         self._last_velocity_rad_s = 0.0
 
     # ── AngularVelocityIO ─────────────────────────────────────────────────────
