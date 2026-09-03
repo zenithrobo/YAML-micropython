@@ -1,4 +1,5 @@
 import math
+import time
 
 from lib.interface.angular_velocity import AngularVelocitySensor
 from lib.system.sensor import Sensor
