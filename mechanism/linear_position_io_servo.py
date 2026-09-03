@@ -1,25 +1,23 @@
 from lib.mechanism.linear_position_io import LinearPositionIO, LinearPositionInputs
 
 
-class LinearServoIO(LinearPositionIO):
+class LinearPositionIOServo(LinearPositionIO):
     """
-    LinearPositionIO Real implementation backed by a single PwmServo.
-    No position sensor — tracks commanded position only.
-
-    Two construction paths:
+    LinearPositionIO — Real implementation backed by a single PwmServo.
+    No position sensor: tracks commanded position only.
 
     Style A — direct calibration (linkage implicit in the range):
-        LinearServoIO(servo,
-                      min_us=500,  max_us=2500,
-                      min_position_m=0.0, max_position_m=0.05)
+        LinearPositionIOServo(servo,
+                              min_us=500, max_us=2500,
+                              min_position_m=0.0, max_position_m=0.05)
 
-    Style B — explicit mechanics (linkage ratio + servo travel):
-        LinearServoIO.from_linkage(servo,
-                                   meter_per_rad=0.02,
-                                   servo_travel_rad=3.14,
-                                   zero_position_m=0.0,
-                                   min_us=500, max_us=2500)
-        # meter_per_rad: linear metres per radian of servo shaft
+    Style B — explicit mechanics:
+        LinearPositionIOServo.from_linkage(servo,
+                                           meter_per_rad=0.02,
+                                           servo_travel_rad=3.14,
+                                           zero_position_m=0.0,
+                                           min_us=500, max_us=2500)
+        # meter_per_rad: metres of linear travel per radian of servo shaft
         #   rack-and-pinion → pitch_radius_m
         #   lever-arm pushrod → arm_length_m  (small-angle approx)
         #   lead-screw → lead_m_per_turn / (2π)
@@ -55,7 +53,7 @@ class LinearServoIO(LinearPositionIO):
         self._commanded_m = target
 
     def stop(self):
-        pass  # servo holds current position; no action needed
+        pass  # servo holds position; no action needed
 
     def home(self, position_m=0.0):
         self._offset_m = position_m - self._commanded_m

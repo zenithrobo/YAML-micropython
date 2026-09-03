@@ -3,24 +3,22 @@ import math
 from lib.mechanism.angular_position_io import AngularPositionIO, AngularPositionInputs
 
 
-class AngularServoIO(AngularPositionIO):
+class AngularPositionIOServo(AngularPositionIO):
     """
-    AngularPositionIO Real implementation backed by a single PwmServo.
-    No position sensor — tracks commanded angle only.
-
-    Two construction paths:
+    AngularPositionIO — Real implementation backed by a single PwmServo.
+    No position sensor: tracks commanded angle only.
 
     Style A — direct calibration (gear ratio implicit in the range):
-        AngularServoIO(servo,
-                       min_us=500,  max_us=2500,
-                       min_angle_rad=0.0, max_angle_rad=math.pi)
+        AngularPositionIOServo(servo,
+                               min_us=500, max_us=2500,
+                               min_angle_rad=0.0, max_angle_rad=math.pi)
 
-    Style B — explicit mechanics (gear ratio + servo travel):
-        AngularServoIO.from_reduction(servo,
-                                      reduction=3.0,
-                                      servo_travel_rad=math.pi,
-                                      zero_angle_rad=0.0,
-                                      min_us=500, max_us=2500)
+    Style B — explicit mechanics:
+        AngularPositionIOServo.from_reduction(servo,
+                                              reduction=3.0,
+                                              servo_travel_rad=math.pi,
+                                              zero_angle_rad=0.0,
+                                              min_us=500, max_us=2500)
         # reduction = servo_rad / mechanism_rad
         # mechanism_travel = servo_travel_rad / reduction
     """
@@ -55,7 +53,7 @@ class AngularServoIO(AngularPositionIO):
         self._commanded_rad = target
 
     def stop(self):
-        pass  # servo holds current position; no action needed
+        pass  # servo holds position; no action needed
 
     def home(self, angle_rad=0.0):
         self._offset_rad = angle_rad - self._commanded_rad
