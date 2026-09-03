@@ -24,6 +24,9 @@ class LinearPositionIO:
     def stop(self) -> None:
         pass
 
+    def set_pid(self, kp: float, ki: float, kd: float) -> None:
+        pass
+
     def home(self, position_m: float = 0.0) -> None:
         """Re-declare the current physical location as position_m (zero the encoder)."""
         pass

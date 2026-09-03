@@ -17,5 +17,8 @@ class AngularVelocityIO:
     def set_velocity(self, velocity_rad_s: float, feedforward: float = 0.0) -> None:
         pass
 
+    def set_pid(self, kp: float, ki: float, kd: float) -> None:
+        pass
+
     def stop(self) -> None:
         pass

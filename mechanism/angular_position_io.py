@@ -24,6 +24,9 @@ class AngularPositionIO:
     def stop(self) -> None:
         pass
 
+    def set_pid(self, kp: float, ki: float, kd: float) -> None:
+        pass
+
     def home(self, angle_rad: float = 0.0) -> None:
         """Re-declare the current physical angle as angle_rad (zero the encoder)."""
         pass
