@@ -5,39 +5,25 @@ from lib.mechanism.angular_position_io import AngularPositionIO, AngularPosition
 
 class AngularPositionIOServo(AngularPositionIO):
     """
-    AngularPositionIO — Real implementation backed by a single PwmServo.
-    No position sensor: tracks commanded angle only.
+    AngularPositionIO backed by a PWM servo. No position sensor — tracks commanded angle only.
 
-    Style A — direct calibration (gear ratio implicit in the range):
-        AngularPositionIOServo(servo,
-                               min_us=500, max_us=2500,
-                               min_angle_rad=0.0, max_angle_rad=math.pi)
-
-    Style B — explicit mechanics:
-        AngularPositionIOServo.from_reduction(servo,
-                                              reduction=3.0,
-                                              servo_travel_rad=math.pi,
-                                              zero_angle_rad=0.0,
-                                              min_us=500, max_us=2500)
-        # reduction = servo_rad / mechanism_rad
-        # mechanism_travel = servo_travel_rad / reduction
+    Args:
+        servo: PwmServo instance
+        min_us: pulse width at 0% duty (default 500 µs)
+        max_us: pulse width at 100% duty (default 2500 µs)
+        angle_at_min_us: mechanism angle (rad) when servo is at min_us
+        angle_at_max_us: mechanism angle (rad) when servo is at max_us
     """
 
-    def __init__(self, servo, min_us, max_us, min_angle_rad, max_angle_rad):
+    def __init__(self, servo, min_us=500, max_us=2500,
+                 angle_at_min_us=0.0, angle_at_max_us=math.pi):
         self._servo = servo
         self._min_us = min_us
         self._max_us = max_us
-        self._min_rad = min_angle_rad
-        self._max_rad = max_angle_rad
-        self._commanded_rad = min_angle_rad
+        self._min_rad = angle_at_min_us
+        self._max_rad = angle_at_max_us
+        self._commanded_rad = angle_at_min_us
         self._offset_rad = 0.0
-
-    @classmethod
-    def from_reduction(cls, servo, reduction, servo_travel_rad,
-                       zero_angle_rad=0.0, min_us=500, max_us=2500):
-        mechanism_travel = servo_travel_rad / reduction
-        return cls(servo, min_us, max_us,
-                   zero_angle_rad, zero_angle_rad + mechanism_travel)
 
     # ── AngularPositionIO ─────────────────────────────────────────────────────
 
@@ -52,8 +38,11 @@ class AngularPositionIOServo(AngularPositionIO):
         self._servo.set(self._rad_to_us(target))
         self._commanded_rad = target
 
+    def set_pid(self, kp, ki, kd):
+        pass  # servo has internal controller
+
     def stop(self):
-        pass  # servo holds position; no action needed
+        pass  # servo holds position
 
     def home(self, angle_rad=0.0):
         self._offset_rad = angle_rad - self._commanded_rad
