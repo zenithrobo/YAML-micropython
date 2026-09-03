@@ -18,8 +18,11 @@ class LinearPositionIOServo(LinearPositionIO):
         self._servo = servo
         self._min_us = min_us
         self._max_us = max_us
-        self._min_m = position_at_min_us
-        self._max_m = position_at_max_us
+        self._m_at_min_us = position_at_min_us
+        self._m_at_max_us = position_at_max_us
+        # clamping range always [lo, hi] regardless of servo mounting direction
+        self._min_m = min(position_at_min_us, position_at_max_us)
+        self._max_m = max(position_at_min_us, position_at_max_us)
         self._commanded_m = position_at_min_us
         self._offset_m = 0.0
 
@@ -48,5 +51,5 @@ class LinearPositionIOServo(LinearPositionIO):
     # ── Internal ──────────────────────────────────────────────────────────────
 
     def _m_to_us(self, position_m):
-        t = (position_m - self._min_m) / (self._max_m - self._min_m)
+        t = (position_m - self._m_at_min_us) / (self._m_at_max_us - self._m_at_min_us)
         return int(self._min_us + t * (self._max_us - self._min_us))

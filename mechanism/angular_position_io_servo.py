@@ -20,8 +20,11 @@ class AngularPositionIOServo(AngularPositionIO):
         self._servo = servo
         self._min_us = min_us
         self._max_us = max_us
-        self._min_rad = angle_at_min_us
-        self._max_rad = angle_at_max_us
+        self._rad_at_min_us = angle_at_min_us
+        self._rad_at_max_us = angle_at_max_us
+        # clamping range always [lo, hi] regardless of servo mounting direction
+        self._min_rad = min(angle_at_min_us, angle_at_max_us)
+        self._max_rad = max(angle_at_min_us, angle_at_max_us)
         self._commanded_rad = angle_at_min_us
         self._offset_rad = 0.0
 
@@ -50,5 +53,5 @@ class AngularPositionIOServo(AngularPositionIO):
     # ── Internal ──────────────────────────────────────────────────────────────
 
     def _rad_to_us(self, angle_rad):
-        t = (angle_rad - self._min_rad) / (self._max_rad - self._min_rad)
+        t = (angle_rad - self._rad_at_min_us) / (self._rad_at_max_us - self._rad_at_min_us)
         return int(self._min_us + t * (self._max_us - self._min_us))
