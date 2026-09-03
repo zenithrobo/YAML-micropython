@@ -51,6 +51,10 @@ class AngularVelocityIOBrushless(AngularVelocityIO):
     def set_pid(self, kp, ki, kd):
         self._pid.set_gains(kp, ki, kd)
 
+    def poll(self):
+        """Call at high frequency (>600 Hz at 9000 RPM) to update velocity estimate."""
+        self._sensor.poll()
+
     def stop(self):
         self._pid.reset()
-        self._esc.stop()
+        self._esc.set(self._spin_up_us)   # back to arm/idle position

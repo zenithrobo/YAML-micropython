@@ -11,6 +11,9 @@ class AngularVelocityIO:
     Typical applications: flywheel, conveyor roller, drive wheel.
     """
 
+    def poll(self) -> None:
+        pass  # override in sensor-backed implementations
+
     def update_inputs(self, inp: AngularVelocityInputs) -> None:
         pass
 
