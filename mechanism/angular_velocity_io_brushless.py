@@ -1,5 +1,9 @@
+import math
+
 from lib.mechanism.angular_velocity_io import AngularVelocityIO, AngularVelocityInputs
 from lib.util.pid import PIDController
+
+_TWO_PI = 2.0 * math.pi
 
 
 class AngularVelocityIOBrushless(AngularVelocityIO):
@@ -7,19 +11,25 @@ class AngularVelocityIOBrushless(AngularVelocityIO):
     AngularVelocityIO backed by a brushless ESC with closed-loop velocity feedback.
 
     Args:
-        esc: object with set_throttle(float) — 0.0 (stopped) to 1.0 (full speed)
-        sensor: AngularVelocitySensor instance (e.g. ESC telemetry, tachometer)
+        esc:          object with set(us: int) and stop() — e.g. PwmESC
+        sensor:       AngularVelocitySensor instance
+        spin_up_us:   minimum pulse width (µs) at which the motor actually spins
+        safe_max_us:  maximum stable pulse width (µs) from calibration
+        peak_rad_s:   angular velocity (rad/s) at safe_max_us — used for feedforward
 
-    Call set_pid() before use; default gains are zero (open-loop feedforward only).
-    update_inputs() must be called each loop before set_velocity() so the PID
-    uses the freshest sensor reading.
+    Feedforward is computed internally as target/peak (open-loop estimate).
+    PID corrects residual error on top. Call set_pid() to enable closed-loop.
+    update_inputs() must be called each loop before set_velocity().
     """
 
-    def __init__(self, esc, sensor):
+    def __init__(self, esc, sensor, spin_up_us, safe_max_us, peak_rad_s):
         self._esc = esc
         self._sensor = sensor
+        self._spin_up_us = spin_up_us
+        self._safe_max_us = safe_max_us
+        self._peak_rad_s = peak_rad_s
         self._pid = PIDController()
-        self._pid.set_output_range(0.0, 1.0)
+        self._pid.set_output_range(-1.0, 1.0)
         self._last_velocity_rad_s = 0.0
 
     # ── AngularVelocityIO ─────────────────────────────────────────────────────
@@ -32,13 +42,15 @@ class AngularVelocityIOBrushless(AngularVelocityIO):
             inp.velocity_rad_s = v
 
     def set_velocity(self, velocity_rad_s, feedforward=0.0):
-        output = self._pid.calculate(self._last_velocity_rad_s, velocity_rad_s) + feedforward
-        output = max(0.0, min(1.0, output))
-        self._esc.set_throttle(output)
+        ff = velocity_rad_s / self._peak_rad_s          # open-loop estimate [0, 1]
+        pid = self._pid.calculate(self._last_velocity_rad_s, velocity_rad_s)
+        throttle = max(0.0, min(1.0, ff + pid + feedforward))
+        us = int(self._spin_up_us + throttle * (self._safe_max_us - self._spin_up_us))
+        self._esc.set(us)
 
     def set_pid(self, kp, ki, kd):
         self._pid.set_gains(kp, ki, kd)
 
     def stop(self):
         self._pid.reset()
-        self._esc.set_throttle(0.0)
+        self._esc.stop()
