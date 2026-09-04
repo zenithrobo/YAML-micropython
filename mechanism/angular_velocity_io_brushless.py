@@ -22,12 +22,14 @@ class AngularVelocityIOBrushless(AngularVelocityIO):
     update_inputs() must be called each loop before set_velocity().
     """
 
-    def __init__(self, esc, sensor, spin_up_us, safe_max_us, peak_rad_s):
+    def __init__(self, esc, sensor, spin_up_us, safe_max_us, peak_rad_s, direction=1, arm_us=1000):
         self._esc = esc
         self._sensor = sensor
-        self._spin_up_us = spin_up_us
+        self._arm_us = arm_us        # idle/arm position — below spin threshold
+        self._spin_up_us = spin_up_us  # minimum pulse where motor begins to respond
         self._safe_max_us = safe_max_us
         self._peak_rad_s = peak_rad_s
+        self._direction = direction
         self._pid = PIDController()
         self._pid.set_output_range(-1.0, 1.0)
         self._pid.set_integral_range(200)   # anti-windup: ki * 200 rad ≈ 4% throttle
@@ -39,14 +41,18 @@ class AngularVelocityIOBrushless(AngularVelocityIO):
         v = self._sensor.get_velocity_rad_s()
         inp.connected = v is not None
         if v is not None:
-            self._last_velocity_rad_s = v
-            inp.velocity_rad_s = v
+            vel = v * self._direction
+            self._last_velocity_rad_s = vel
+            inp.velocity_rad_s = vel
 
     def set_velocity(self, velocity_rad_s, feedforward=0.0):
         ff = velocity_rad_s / self._peak_rad_s          # open-loop estimate [0, 1]
         pid = self._pid.calculate(self._last_velocity_rad_s, velocity_rad_s)
         throttle = max(0.0, min(1.0, ff + pid + feedforward))
-        us = int(self._spin_up_us + throttle * (self._safe_max_us - self._spin_up_us))
+        if throttle == 0.0:
+            us = self._arm_us
+        else:
+            us = int(self._spin_up_us + throttle * (self._safe_max_us - self._spin_up_us))
         self._esc.set(us)
 
     def set_pid(self, kp, ki, kd):
@@ -58,4 +64,4 @@ class AngularVelocityIOBrushless(AngularVelocityIO):
 
     def stop(self):
         self._pid.reset()
-        self._esc.set(self._spin_up_us)   # back to arm/idle position
+        self._esc.set(self._arm_us)
