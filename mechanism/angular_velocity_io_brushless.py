@@ -34,6 +34,7 @@ class AngularVelocityIOBrushless(AngularVelocityIO):
         self._pid.set_output_range(-1.0, 1.0)
         self._pid.set_integral_range(200)   # anti-windup: ki * 200 rad ≈ 4% throttle
         self._last_velocity_rad_s = 0.0
+        self._open_loop = False
 
     # ── AngularVelocityIO ─────────────────────────────────────────────────────
 
@@ -47,13 +48,21 @@ class AngularVelocityIOBrushless(AngularVelocityIO):
 
     def set_velocity(self, velocity_rad_s, feedforward=0.0):
         ff = velocity_rad_s / self._peak_rad_s          # open-loop estimate [0, 1]
-        pid = self._pid.calculate(self._last_velocity_rad_s, velocity_rad_s)
-        throttle = max(0.0, min(1.0, ff + pid + feedforward))
+        if self._open_loop:
+            throttle = max(0.0, min(1.0, ff + feedforward))
+        else:
+            pid = self._pid.calculate(self._last_velocity_rad_s, velocity_rad_s)
+            throttle = max(0.0, min(1.0, ff + pid + feedforward))
         if throttle == 0.0:
             us = self._arm_us
         else:
             us = int(self._spin_up_us + throttle * (self._safe_max_us - self._spin_up_us))
         self._esc.set(us)
+
+    def set_open_loop(self, enabled):
+        self._open_loop = enabled
+        if not enabled:
+            self._pid.reset()
 
     def set_pid(self, kp, ki, kd):
         self._pid.set_gains(kp, ki, kd)
